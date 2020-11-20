@@ -8,27 +8,35 @@ include_once "simple_html_dom.php";
 
 ini_set("memory_limit", "100000M");
 
-// Připojovací údaje
-//define('SQL_HOST', 'localhost:8889');
-//define('SQL_DBNAME', 'acka');
-//define('SQL_USERNAME', 'root');
-//define('SQL_PASSWORD', 'root');
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
-define('SQL_HOST', '127.0.0.1');
-define('SQL_DBNAME', 'arecenzecz');
-define('SQL_USERNAME', 'arecenzecz001');
-define('SQL_PASSWORD', 'tdKAzcg7yGZ8fsu8');
+// Připojovací údaje
+define('SQL_HOST', 'localhost:8889');
+define('SQL_DBNAME', 'arecenze_jak_vybrat');
+define('SQL_USERNAME', 'root');
+define('SQL_PASSWORD', 'root');
+
+//define('SQL_HOST', '127.0.0.1');
+//define('SQL_DBNAME', 'arecenzecz');
+//define('SQL_USERNAME', 'arecenzecz001');
+//define('SQL_PASSWORD', 'tdKAzcg7yGZ8fsu8');
 
 $dsn = 'mysql:dbname=' . SQL_DBNAME . ';host=' . SQL_HOST . '';
 $user = SQL_USERNAME;
 $password = SQL_PASSWORD;
+
+
+define('DEV', true);
 
 try {
     $pdo = new PDO($dsn, $user, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
 
-    $dotaz = $pdo->query("SELECT meta_value, meta_key, post_id FROM wpstg0_postmeta WHERE meta_key='crs_how_to_choose'");
+//    $dotaz = $pdo->query("SELECT meta_value, meta_key, post_id FROM wpstg0_postmeta WHERE meta_key='crs_how_to_choose'");
+    $dotaz = $pdo->query("SELECT meta_value, meta_key, post_id FROM wp_postmeta WHERE meta_key='crs_how_to_choose' AND post_id=7735");
     $rows = $dotaz->fetchAll();
 
     $validPosts = 0;
@@ -40,14 +48,15 @@ try {
         $parser = str_get_html($row['meta_value']);
         $sourcesFound = false;
         if($parser){
+            echo "Countent can be parsed";
             $validPosts++;
             foreach ($parser->find("div") as $element){
                 if($element){
-
                     foreach ($element->find("p") as $heading){
 //                        if($heading->innertext == "Použité a další zajímavé zdroje:"){
                         if(isHeadingName($heading->innertext)){
-                            printf("%d\n", $row['post_id']);
+                            echo "Sources detected ";
+                            echo $row["post_id"];
 
                             $sourcesFound = true;
                             $sourcesContent = "";
@@ -65,7 +74,7 @@ try {
                             $sourcesData = substr($src, $sourcesPosStart  + strlen($heading->outertext));
 
                             // content stripped out from sources
-                            $contentWithoutSources = substr($src, 0, $sourcesPosStart);
+                            $contentWithoutSources = substr($parser, 0, $sourcesPosStart);
 
                             // parse sources
                             $parsedSources = str_get_html($sourcesData);
@@ -79,7 +88,8 @@ try {
                             );
 
                             // update content without sources
-                            $update = "UPDATE wpstg0_postmeta SET meta_value=? WHERE post_id=? AND (meta_key='crs_how_to_choose' OR meta_key='_crs_how_to_choose')";
+//                            $update = "UPDATE wpstg0_postmeta SET meta_value=? WHERE post_id=? AND (meta_key='crs_how_to_choose')";
+                            $update = "UPDATE wp_postmeta SET meta_value=? WHERE post_id=? AND (meta_key='crs_how_to_choose')";
                             $preparedUpdate = $pdo->prepare($update);
                             $executedUpdate = $preparedUpdate->execute([$contentWithoutSources, $row["post_id"]]);
                         }
@@ -92,7 +102,6 @@ try {
                     $indexOfHeading = strpos($row['meta_value'], $heading);
                     if($indexOfHeading){
                         $sourcesFound = true;
-                        printf("%d\n", $row['post_id']);
                         $sourcesString = substr($row['meta_value'], $indexOfHeading + strlen($heading));
                         $sources = str_get_html($sourcesString);
                         $itemLinks = [];
@@ -115,7 +124,9 @@ try {
                         $contentWithoutSources = substr($row['meta_value'], 0, $sourcesPosStart);
 
                         // update content without sources
-                        $update = "UPDATE wpstg0_postmeta SET meta_value=? WHERE post_id=? AND (meta_key='crs_how_to_choose' OR meta_key='_crs_how_to_choose')";
+//                        $update = "UPDATE wpstg0_postmeta SET meta_value=? WHERE post_id=? AND (meta_key='crs_how_to_choose' OR meta_key='_crs_how_to_choose')";
+//                        $update = "UPDATE wpstg0_postmeta SET meta_value=? WHERE post_id=? AND (meta_key='crs_how_to_choose')";
+                        $update = "UPDATE wp_postmeta SET meta_value=? WHERE post_id=? AND (meta_key='crs_how_to_choose')";
                         $preparedUpdate = $pdo->prepare($update);
                         $executedUpdate = $preparedUpdate->execute([$contentWithoutSources, $row["post_id"]]);
                     }
@@ -125,7 +136,6 @@ try {
                 $uncompiledPosts[] = $row["post_id"];
             }
         }
-//
     }
 
     echo "Count: ".count($rows)."\n";
